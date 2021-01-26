@@ -132,7 +132,7 @@ namespace Datadog.Trace.ClrProfiler.Integrations
                 }
             }
 
-            using (var scope = CreateScope(Tracer.Instance, out RabbitMQTags tags, command, parentContext: propagatedContext, spanKind: SpanKinds.Consumer, exchange: exchange, routingKey: routingKey))
+            using (var scope = ScopeFactory.CreateRabbitMQScope(Tracer.Instance, out RabbitMQTags tags, command, parentContext: propagatedContext, spanKind: SpanKinds.Consumer, exchange: exchange, routingKey: routingKey))
             {
                 if (tags != null)
                 {
@@ -231,7 +231,7 @@ namespace Datadog.Trace.ClrProfiler.Integrations
                 }
             }
 
-            using (var scope = CreateScope(Tracer.Instance, out RabbitMQTags tags, command, parentContext: propagatedContext, spanKind: SpanKinds.Consumer, exchange: exchange, routingKey: routingKey))
+            using (var scope = ScopeFactory.CreateRabbitMQScope(Tracer.Instance, out RabbitMQTags tags, command, parentContext: propagatedContext, spanKind: SpanKinds.Consumer, exchange: exchange, routingKey: routingKey))
             {
                 if (tags != null)
                 {
@@ -346,7 +346,7 @@ namespace Datadog.Trace.ClrProfiler.Integrations
                     }
                 }
 
-                using (var scope = CreateScope(Tracer.Instance, out tags, command, parentContext: propagatedContext, spanKind: SpanKinds.Consumer, queue: queue, startTime: startTime))
+                using (var scope = ScopeFactory.CreateRabbitMQScope(Tracer.Instance, out tags, command, parentContext: propagatedContext, spanKind: SpanKinds.Consumer, queue: queue, startTime: startTime))
                 {
                     if (scope != null)
                     {
@@ -429,7 +429,7 @@ namespace Datadog.Trace.ClrProfiler.Integrations
                 throw;
             }
 
-            using (var scope = CreateScope(Tracer.Instance, out RabbitMQTags tags, command, spanKind: SpanKinds.Producer, exchange: exchange, routingKey: routingKey))
+            using (var scope = ScopeFactory.CreateRabbitMQScope(Tracer.Instance, out RabbitMQTags tags, command, spanKind: SpanKinds.Producer, exchange: exchange, routingKey: routingKey))
             {
                 if (scope != null)
                 {
@@ -533,7 +533,7 @@ namespace Datadog.Trace.ClrProfiler.Integrations
                 throw;
             }
 
-            using (var scope = CreateScope(Tracer.Instance, out RabbitMQTags tags, command, spanKind: SpanKinds.Producer, exchange: exchange, routingKey: routingKey))
+            using (var scope = ScopeFactory.CreateRabbitMQScope(Tracer.Instance, out RabbitMQTags tags, command, spanKind: SpanKinds.Producer, exchange: exchange, routingKey: routingKey))
             {
                 if (scope != null)
                 {
@@ -643,7 +643,7 @@ namespace Datadog.Trace.ClrProfiler.Integrations
                 throw;
             }
 
-            using (var scope = CreateScope(Tracer.Instance, out _, command, exchange: exchange))
+            using (var scope = ScopeFactory.CreateRabbitMQScope(Tracer.Instance, out _, command, exchange: exchange))
             {
                 try
                 {
@@ -717,7 +717,7 @@ namespace Datadog.Trace.ClrProfiler.Integrations
                 throw;
             }
 
-            using (var scope = CreateScope(Tracer.Instance, out _, command, queue: queue, exchange: exchange, routingKey: routingKey))
+            using (var scope = ScopeFactory.CreateRabbitMQScope(Tracer.Instance, out _, command, queue: queue, exchange: exchange, routingKey: routingKey))
             {
                 try
                 {
@@ -795,7 +795,7 @@ namespace Datadog.Trace.ClrProfiler.Integrations
                 throw;
             }
 
-            using (var scope = CreateScope(Tracer.Instance, out _, command, queue: queue))
+            using (var scope = ScopeFactory.CreateRabbitMQScope(Tracer.Instance, out _, command, queue: queue))
             {
                 try
                 {
@@ -807,48 +807,6 @@ namespace Datadog.Trace.ClrProfiler.Integrations
                     throw;
                 }
             }
-        }
-
-        internal static Scope CreateScope(Tracer tracer, out RabbitMQTags tags, string command, ISpanContext parentContext = null, string spanKind = SpanKinds.Client, DateTimeOffset? startTime = null, string queue = null, string exchange = null, string routingKey = null)
-        {
-            tags = null;
-
-            if (!tracer.Settings.IsIntegrationEnabled(IntegrationId))
-            {
-                // integration disabled, don't create a scope, skip this trace
-                return null;
-            }
-
-            Scope scope = null;
-
-            try
-            {
-                Span parent = tracer.ActiveScope?.Span;
-
-                tags = new RabbitMQTags(spanKind);
-                string serviceName = tracer.Settings.GetServiceName(tracer, ServiceName);
-                scope = tracer.StartActiveWithTags(OperationName, parent: parentContext, tags: tags, serviceName: serviceName, startTime: startTime);
-                var span = scope.Span;
-
-                span.Type = SpanTypes.Queue;
-                span.ResourceName = command;
-                tags.Command = command;
-
-                tags.Queue = queue;
-                tags.Exchange = exchange;
-                tags.RoutingKey = routingKey;
-
-                tags.InstrumentationName = IntegrationName;
-                tags.SetAnalyticsSampleRate(IntegrationId, tracer.Settings, enabledWithGlobalSetting: false);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error creating or populating scope.");
-            }
-
-            // always returns the scope, even if it's null because we couldn't create it,
-            // or we couldn't populate it completely (some tags is better than no tags)
-            return scope;
         }
 
         /********************
