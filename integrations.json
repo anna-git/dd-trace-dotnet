@@ -5,7 +5,7 @@
       {
         "caller": {},
         "target": {
-          "assembly": "System.Net.Http",
+          "assembly": "System.Net.Http.WinHttpHandler",
           "type": "System.Net.Http.WinHttpHandler",
           "method": "SendAsync",
           "signature_types": [
