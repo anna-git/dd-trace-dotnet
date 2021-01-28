@@ -82,7 +82,7 @@ class Build : NukeBuild
                 "src/**/*.csproj",
                 "test/**/*.Tests.csproj",
                 "test/benchmarks/**/*.csproj")
-            .Where(path => !path.Contains("Datadog.Trace.Tools.Runner"))
+            .Where(path => !path.ToString().Contains("Datadog.Trace.Tools.Runner"))
             .ForEach(project => {
                 DotNetBuild(config => config
                     .SetProjectFile(project)
@@ -93,6 +93,7 @@ class Build : NukeBuild
         });
 
     Target CompileIntegrationTests => _ => _
+        .After(CompileTracerHome)
         .Executes(() =>
         {
             RootDirectory.GlobFiles(
@@ -112,10 +113,12 @@ class Build : NukeBuild
         });
 
     Target CompileSamples => _ => _
+        .After(CompileTracerHome)
+        .After(CompileIntegrationTests)
         .Executes(() =>
         {
             RootDirectory.GlobFiles("test/test-applications/integrations/**/*.csproj")
-            .Where(path => !path.Contains("dependency-libs"))
+            .Where(path => !path.ToString().Contains("dependency-libs"))
             .ForEach(project => {
                 DotNetBuild(config => config
                     .SetProjectFile(project)
@@ -221,6 +224,7 @@ class Build : NukeBuild
         });
 
     Target CompileTracerHome => _ => _
+        .Requires(() => Platform)
         .Requires(() => PublishOutputPath != null)
         .Executes(() =>
         {
@@ -263,10 +267,10 @@ class Build : NukeBuild
 
     Target CiWindowsIntegrationTests => _ => _
         //.DependsOn(Restore)
-        //.DependsOn(CompileTracerHome)
-        //.DependsOn(BuildFrameworkReproductions)
+        .DependsOn(CompileTracerHome)
+        .DependsOn(BuildFrameworkReproductions)
         .DependsOn(CompileIntegrationTests)
-        //.DependsOn(CompileSamples)
+        .DependsOn(CompileSamples)
         .DependsOn(IntegrationTests)
         .DependsOn(ClrProfilerIntegrationTests);
         
