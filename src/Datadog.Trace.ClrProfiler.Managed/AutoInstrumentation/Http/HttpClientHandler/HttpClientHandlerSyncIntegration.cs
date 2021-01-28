@@ -3,7 +3,7 @@ using System.Threading;
 using Datadog.Trace.ClrProfiler.CallTarget;
 using Datadog.Trace.Configuration;
 
-namespace Datadog.Trace.ClrProfiler.AutoInstrumentation.HttpClientHandler
+namespace Datadog.Trace.ClrProfiler.AutoInstrumentation.Http.HttpClientHandler
 {
     /// <summary>
     /// System.Net.Http.HttpClientHandler calltarget instrumentation

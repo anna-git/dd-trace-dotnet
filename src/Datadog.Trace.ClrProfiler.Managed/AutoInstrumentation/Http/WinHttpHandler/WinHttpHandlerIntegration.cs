@@ -6,25 +6,25 @@ using Datadog.Trace.Configuration;
 using Datadog.Trace.ExtensionMethods;
 using Datadog.Trace.Tagging;
 
-namespace Datadog.Trace.ClrProfiler.AutoInstrumentation.SocketsHttpHandler
+namespace Datadog.Trace.ClrProfiler.AutoInstrumentation.Http.WinHttpHandler
 {
     /// <summary>
-    /// System.Net.Http.SocketsHttpHandler calltarget instrumentation
+    /// System.Net.Http.WinHttpHandler calltarget instrumentation
     /// </summary>
     [InstrumentMethod(
-        Assembly = "System.Net.Http",
-        Type = "System.Net.Http.SocketsHttpHandler",
+        Assembly = "System.Net.Http.WinHttpHandler",
+        Type = "System.Net.Http.WinHttpHandler",
         Method = "SendAsync",
         ReturnTypeName = ClrNames.HttpResponseMessageTask,
         ParametersTypesNames = new[] { ClrNames.HttpRequestMessage, ClrNames.CancellationToken },
         MinimumVersion = "4.0.0",
         MaximumVersion = "5.*.*",
         IntegrationName = IntegrationName)]
-    public class SocketsHttpHandlerIntegration
+    public class WinHttpHandlerIntegration
     {
         private const string IntegrationName = nameof(IntegrationIds.HttpMessageHandler);
         private static readonly IntegrationInfo IntegrationId = IntegrationRegistry.GetIntegrationInfo(IntegrationName);
-        private static readonly IntegrationInfo SocketHandlerIntegrationId = IntegrationRegistry.GetIntegrationInfo(nameof(IntegrationIds.HttpSocketsHandler));
+        private static readonly IntegrationInfo WinHttpHandlerIntegrationId = IntegrationRegistry.GetIntegrationInfo(nameof(IntegrationIds.WinHttpHandler));
 
         /// <summary>
         /// OnMethodBegin callback
@@ -94,7 +94,7 @@ namespace Datadog.Trace.ClrProfiler.AutoInstrumentation.SocketsHttpHandler
 
         private static bool IsTracingEnabled(IRequestHeaders headers)
         {
-            if (!Tracer.Instance.Settings.IsIntegrationEnabled(SocketHandlerIntegrationId, defaultValue: false))
+            if (!Tracer.Instance.Settings.IsIntegrationEnabled(WinHttpHandlerIntegrationId, defaultValue: false))
             {
                 return false;
             }

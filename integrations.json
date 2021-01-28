@@ -22,7 +22,7 @@
         },
         "wrapper": {
           "assembly": "Datadog.Trace.ClrProfiler.Managed, Version=1.22.0.0, Culture=neutral, PublicKeyToken=def86d061d0d2eeb",
-          "type": "Datadog.Trace.ClrProfiler.AutoInstrumentation.WinHttpHandler.WinHttpHandlerIntegration",
+          "type": "Datadog.Trace.ClrProfiler.AutoInstrumentation.Http.WinHttpHandler.WinHttpHandlerIntegration",
           "action": "CallTargetModification"
         }
       },
@@ -46,7 +46,7 @@
         },
         "wrapper": {
           "assembly": "Datadog.Trace.ClrProfiler.Managed, Version=1.22.0.0, Culture=neutral, PublicKeyToken=def86d061d0d2eeb",
-          "type": "Datadog.Trace.ClrProfiler.AutoInstrumentation.SocketsHttpHandler.SocketsHttpHandlerIntegration",
+          "type": "Datadog.Trace.ClrProfiler.AutoInstrumentation.Http.SocketsHttpHandler.SocketsHttpHandlerIntegration",
           "action": "CallTargetModification"
         }
       },
@@ -70,7 +70,7 @@
         },
         "wrapper": {
           "assembly": "Datadog.Trace.ClrProfiler.Managed, Version=1.22.0.0, Culture=neutral, PublicKeyToken=def86d061d0d2eeb",
-          "type": "Datadog.Trace.ClrProfiler.AutoInstrumentation.HttpClientHandler.HttpClientHandlerIntegration",
+          "type": "Datadog.Trace.ClrProfiler.AutoInstrumentation.Http.HttpClientHandler.HttpClientHandlerIntegration",
           "action": "CallTargetModification"
         }
       },
@@ -94,7 +94,7 @@
         },
         "wrapper": {
           "assembly": "Datadog.Trace.ClrProfiler.Managed, Version=1.22.0.0, Culture=neutral, PublicKeyToken=def86d061d0d2eeb",
-          "type": "Datadog.Trace.ClrProfiler.AutoInstrumentation.HttpClientHandler.HttpClientHandlerSyncIntegration",
+          "type": "Datadog.Trace.ClrProfiler.AutoInstrumentation.Http.HttpClientHandler.HttpClientHandlerSyncIntegration",
           "action": "CallTargetModification"
         }
       }

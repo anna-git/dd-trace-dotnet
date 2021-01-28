@@ -6,13 +6,35 @@ using Datadog.Trace.Configuration;
 using Datadog.Trace.ExtensionMethods;
 using Datadog.Trace.Tagging;
 
-namespace Datadog.Trace.ClrProfiler.AutoInstrumentation.HttpClientHandler
+namespace Datadog.Trace.ClrProfiler.AutoInstrumentation.Http.SocketsHttpHandler
 {
-    internal class HttpClientHandlerCommon
+    /// <summary>
+    /// System.Net.Http.SocketsHttpHandler calltarget instrumentation
+    /// </summary>
+    [InstrumentMethod(
+        Assembly = "System.Net.Http",
+        Type = "System.Net.Http.SocketsHttpHandler",
+        Method = "SendAsync",
+        ReturnTypeName = ClrNames.HttpResponseMessageTask,
+        ParametersTypesNames = new[] { ClrNames.HttpRequestMessage, ClrNames.CancellationToken },
+        MinimumVersion = "4.0.0",
+        MaximumVersion = "5.*.*",
+        IntegrationName = IntegrationName)]
+    public class SocketsHttpHandlerIntegration
     {
         private const string IntegrationName = nameof(IntegrationIds.HttpMessageHandler);
         private static readonly IntegrationInfo IntegrationId = IntegrationRegistry.GetIntegrationInfo(IntegrationName);
+        private static readonly IntegrationInfo SocketHandlerIntegrationId = IntegrationRegistry.GetIntegrationInfo(nameof(IntegrationIds.HttpSocketsHandler));
 
+        /// <summary>
+        /// OnMethodBegin callback
+        /// </summary>
+        /// <typeparam name="TTarget">Type of the target</typeparam>
+        /// <typeparam name="TRequest">Type of the request</typeparam>
+        /// <param name="instance">Instance value, aka `this` of the instrumented method.</param>
+        /// <param name="requestMessage">HttpRequest message instance</param>
+        /// <param name="cancellationToken">CancellationToken value</param>
+        /// <returns>Calltarget state value</returns>
         public static CallTargetState OnMethodBegin<TTarget, TRequest>(TTarget instance, TRequest requestMessage, CancellationToken cancellationToken)
             where TRequest : IHttpRequestMessage
         {
@@ -33,7 +55,17 @@ namespace Datadog.Trace.ClrProfiler.AutoInstrumentation.HttpClientHandler
             return CallTargetState.GetDefault();
         }
 
-        public static TResponse OnMethodEnd<TTarget, TResponse>(TTarget instance, TResponse responseMessage, Exception exception, CallTargetState state)
+        /// <summary>
+        /// OnAsyncMethodEnd callback
+        /// </summary>
+        /// <typeparam name="TTarget">Type of the target</typeparam>
+        /// <typeparam name="TResponse">Type of the response, in an async scenario will be T of Task of T</typeparam>
+        /// <param name="instance">Instance value, aka `this` of the instrumented method.</param>
+        /// <param name="responseMessage">HttpResponse message instance</param>
+        /// <param name="exception">Exception instance in case the original code threw an exception.</param>
+        /// <param name="state">Calltarget state value</param>
+        /// <returns>A response value, in an async scenario will be T of Task of T</returns>
+        public static TResponse OnAsyncMethodEnd<TTarget, TResponse>(TTarget instance, TResponse responseMessage, Exception exception, CallTargetState state)
             where TResponse : IHttpResponseMessage
         {
             Scope scope = state.Scope;
@@ -62,6 +94,11 @@ namespace Datadog.Trace.ClrProfiler.AutoInstrumentation.HttpClientHandler
 
         private static bool IsTracingEnabled(IRequestHeaders headers)
         {
+            if (!Tracer.Instance.Settings.IsIntegrationEnabled(SocketHandlerIntegrationId, defaultValue: false))
+            {
+                return false;
+            }
+
             if (headers.TryGetValues(HttpHeaderNames.TracingEnabled, out var headerValues))
             {
                 if (headerValues is string[] arrayValues)
