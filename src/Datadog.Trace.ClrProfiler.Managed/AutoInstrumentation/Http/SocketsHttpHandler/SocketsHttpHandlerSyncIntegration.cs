@@ -11,13 +11,13 @@ namespace Datadog.Trace.ClrProfiler.AutoInstrumentation.Http.SocketsHttpHandler
     [InstrumentMethod(
         Assembly = "System.Net.Http",
         Type = "System.Net.Http.SocketsHttpHandler",
-        Method = "SendAsync",
-        ReturnTypeName = ClrNames.HttpResponseMessageTask,
+        Method = "Send",
+        ReturnTypeName = ClrNames.HttpResponseMessage,
         ParametersTypesNames = new[] { ClrNames.HttpRequestMessage, ClrNames.CancellationToken },
-        MinimumVersion = "4.0.0",
+        MinimumVersion = "5.0.0",
         MaximumVersion = "5.*.*",
         IntegrationName = IntegrationName)]
-    public class SocketsHttpHandlerIntegration
+    public class SocketsHttpHandlerSyncIntegration
     {
         private const string IntegrationName = nameof(IntegrationIds.HttpMessageHandler);
 
@@ -46,10 +46,11 @@ namespace Datadog.Trace.ClrProfiler.AutoInstrumentation.Http.SocketsHttpHandler
         /// <param name="exception">Exception instance in case the original code threw an exception.</param>
         /// <param name="state">Calltarget state value</param>
         /// <returns>A response value, in an async scenario will be T of Task of T</returns>
-        public static TResponse OnAsyncMethodEnd<TTarget, TResponse>(TTarget instance, TResponse responseMessage, Exception exception, CallTargetState state)
+        public static CallTargetReturn<TResponse> OnMethodEnd<TTarget, TResponse>(TTarget instance, TResponse responseMessage, Exception exception, CallTargetState state)
             where TResponse : IHttpResponseMessage
         {
-            return SocketsHttpHandlerCommon.OnMethodEnd(instance, responseMessage, exception, state);
+            var response = SocketsHttpHandlerCommon.OnMethodEnd(instance, responseMessage, exception, state);
+            return new CallTargetReturn<TResponse>(response);
         }
     }
 }
