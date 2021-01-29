@@ -52,8 +52,6 @@ class Build : NukeBuild
 
     AbsolutePath TestsDirectory => RootDirectory / "test";
 
-    AbsolutePath OutputDirectory => RootDirectory / "output";
-
     AbsolutePath MsBuildProject => RootDirectory / "Datadog.Trace.proj";
 
     Project ManagedLoaderProject => Solution.GetProject("Datadog.Trace.ClrProfiler.Managed.Loader");
@@ -64,7 +62,7 @@ class Build : NukeBuild
         {
             SourceDirectory.GlobDirectories("**/bin", "**/obj").ForEach(DeleteDirectory);
             TestsDirectory.GlobDirectories("**/bin", "**/obj").ForEach(DeleteDirectory);
-            EnsureCleanDirectory(OutputDirectory);
+            EnsureCleanDirectory(PublishOutputPath);
         });
 
     Target Restore => _ => _
@@ -73,9 +71,13 @@ class Build : NukeBuild
             NuGetTasks.NuGetRestore(s => s
                 .SetTargetPath(Solution)
                 .SetVerbosity(NuGetVerbosity.Normal));
+            DotNetRestore(s => s
+                .SetProjectFile(Solution)
+                .SetVerbosity(DotNetVerbosity.Normal));
         });
 
     Target CompileSolution => _ => _
+        .After(Restore)
         .Executes(() =>
         {
             RootDirectory.GlobFiles(
@@ -104,6 +106,7 @@ class Build : NukeBuild
                 && !path.ToString().Contains("ExpenseItDemo"))
             .ForEach(project => {
                 DotNetBuild(config => config
+                    .EnableNoRestore()
                     .SetProjectFile(project)
                     .SetTargetPlatform(Platform)
                     .SetConfiguration(Configuration)
@@ -121,6 +124,7 @@ class Build : NukeBuild
             .Where(path => !path.ToString().Contains("dependency-libs"))
             .ForEach(project => {
                 DotNetBuild(config => config
+                    .EnableNoRestore()
                     .SetProjectFile(project)
                     .SetTargetPlatform(Platform)
                     .SetConfiguration(Configuration)
@@ -182,6 +186,8 @@ class Build : NukeBuild
             };
 
             DotNetTest(x => x
+                .EnableNoRestore()
+                .EnableNoBuild()
                 .SetConfiguration(Configuration)
                 .SetTargetPlatform(Platform)
                 .CombineWith(projects, (y, project) => y
@@ -197,6 +203,8 @@ class Build : NukeBuild
             var project = Solution.GetProject("Datadog.Trace.ClrProfiler.IntegrationTests");
 
             DotNetTest(x => x
+                .EnableNoRestore()
+                .EnableNoBuild()
                 .SetConfiguration(Configuration)
                 .SetTargetPlatform(Platform)
                 .SetProjectFile(project)
@@ -224,6 +232,7 @@ class Build : NukeBuild
         });
 
     Target CompileTracerHome => _ => _
+        .After(Restore)
         .Requires(() => Platform)
         .Requires(() => PublishOutputPath != null)
         .Executes(() =>
@@ -240,6 +249,7 @@ class Build : NukeBuild
         });
 
     Target BuildFrameworkReproductions => _ => _
+        .After(Restore)
         .Requires(() => PublishOutputPath != null)
         .Executes(() =>
         {
@@ -266,7 +276,8 @@ class Build : NukeBuild
         .DependsOn(PublishManagedLoader);
 
     Target CiWindowsIntegrationTests => _ => _
-        //.DependsOn(Restore)
+        .DependsOn(Clean)
+        .DependsOn(Restore)
         .DependsOn(CompileTracerHome)
         .DependsOn(BuildFrameworkReproductions)
         .DependsOn(CompileIntegrationTests)
