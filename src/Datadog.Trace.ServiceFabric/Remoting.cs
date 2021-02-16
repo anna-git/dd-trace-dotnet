@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Text;
 using System.Threading;
 using Datadog.Trace.Configuration;
-using Microsoft.ServiceFabric.Services.Remoting.V2;
+using Datadog.Trace.DuckTyping;
 using Microsoft.ServiceFabric.Services.Remoting.V2.Client;
 using Microsoft.ServiceFabric.Services.Remoting.V2.Runtime;
 
@@ -101,9 +101,9 @@ namespace Datadog.Trace.ServiceFabric
         /// from the server after it finishes processing a request.
         /// </summary>
         /// <param name="sender">The object that raised the event.</param>
-        /// <param name="e">The event arguments. Can be of type <see cref="ServiceRemotingResponseEventArgs"/> on success
-        /// or <see cref="ServiceRemotingFailedResponseEventArgs"/> on failure.</param>
-        private static void ServiceRemotingClientEvents_ReceiveResponse(object? sender, EventArgs e)
+        /// <param name="e">The event arguments. Can be of type <see cref="IServiceRemotingResponseEventArgs"/> on success
+        /// or <see cref="IServiceRemotingFailedResponseEventArgs"/> on failure.</param>
+        private static void ServiceRemotingClientEvents_ReceiveResponse(object? sender, EventArgs? e)
         {
             if (!_initialized)
             {
@@ -118,7 +118,7 @@ namespace Datadog.Trace.ServiceFabric
         /// </summary>
         /// <param name="sender">The object that raised the event.</param>
         /// <param name="e">The event arguments.</param>
-        private static void ServiceRemotingServiceEvents_ReceiveRequest(object? sender, EventArgs e)
+        private static void ServiceRemotingServiceEvents_ReceiveRequest(object? sender, EventArgs? e)
         {
             if (!_initialized)
             {
@@ -179,9 +179,9 @@ namespace Datadog.Trace.ServiceFabric
         /// after processing an incoming request.
         /// </summary>
         /// <param name="sender">The object that raised the event.</param>
-        /// <param name="e">The event arguments. Can be of type <see cref="ServiceRemotingResponseEventArgs"/> on success
-        /// or <see cref="ServiceRemotingFailedResponseEventArgs"/> on failure.</param>
-        private static void ServiceRemotingServiceEvents_SendResponse(object? sender, EventArgs e)
+        /// <param name="e">The event arguments. Can be of type <see cref="IServiceRemotingResponseEventArgs"/> on success
+        /// or <see cref="IServiceRemotingFailedResponseEventArgs"/> on failure.</param>
+        private static void ServiceRemotingServiceEvents_SendResponse(object? sender, EventArgs? e)
         {
             if (!_initialized)
             {
@@ -191,28 +191,48 @@ namespace Datadog.Trace.ServiceFabric
             FinishSpan(e, SpanKinds.Server);
         }
 
-        private static void GetMessageHeaders(EventArgs? eventArgs, out ServiceRemotingRequestEventArgs? requestEventArgs, out IServiceRemotingRequestMessageHeader? messageHeaders)
+        private static void GetMessageHeaders(EventArgs? eventArgs, out IServiceRemotingRequestEventArgs? requestEventArgs, out IServiceRemotingRequestMessageHeader? messageHeaders)
         {
-            requestEventArgs = eventArgs as ServiceRemotingRequestEventArgs;
+            requestEventArgs = null;
+            messageHeaders = null;
+
+            if (eventArgs == null)
+            {
+                Log.Warning("Unexpected null EventArgs.");
+                return;
+            }
+
+            string eventArgsTypeName = eventArgs.GetType().FullName;
+
+            if (eventArgsTypeName != "Microsoft.ServiceFabric.Services.Remoting.V2.ServiceRemotingRequestEventArgs")
+            {
+                Log.Warning("Unexpected eventArgs type: {type}.", eventArgsTypeName ?? "null");
+                return;
+            }
 
             try
             {
-                if (requestEventArgs == null)
-                {
-                    Log.Warning("Unexpected EventArgs type: {0}", eventArgs?.GetType().FullName ?? "null");
-                }
+                requestEventArgs = eventArgs.As<IServiceRemotingRequestEventArgs>();
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, $"Error ducktyping eventArgs into {nameof(IServiceRemotingRequestEventArgs)}.");
+                return;
+            }
 
+            try
+            {
                 messageHeaders = requestEventArgs?.Request?.GetHeader();
-
-                if (messageHeaders == null)
-                {
-                    Log.Warning("Cannot access request headers.");
-                }
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "Error accessing request headers.");
-                messageHeaders = null;
+                return;
+            }
+
+            if (messageHeaders == null)
+            {
+                Log.Warning("Cannot access request headers.");
             }
         }
 
@@ -282,7 +302,7 @@ namespace Datadog.Trace.ServiceFabric
             Tracer tracer,
             ISpanContext? context,
             string spanKind,
-            ServiceRemotingRequestEventArgs? eventArgs,
+            IServiceRemotingRequestEventArgs? eventArgs,
             IServiceRemotingRequestMessageHeader? messageHeader)
         {
             string? methodName = null;
@@ -291,43 +311,35 @@ namespace Datadog.Trace.ServiceFabric
 
             if (eventArgs != null)
             {
-                serviceUrl = eventArgs.ServiceUri?.AbsoluteUri;
-                methodName = eventArgs.MethodName;
-
                 if (string.IsNullOrEmpty(methodName))
                 {
                     // use the numeric id as the method name
-                    methodName = messageHeader == null ? "unknown" : messageHeader.MethodId.ToString(CultureInfo.InvariantCulture);
+                    methodName = messageHeader?.MethodId.ToString(CultureInfo.InvariantCulture) ?? "unknown_method";
+                }
+                else
+                {
+                    methodName = eventArgs.MethodName;
                 }
 
-                resourceName = serviceUrl == null ? methodName : $"{serviceUrl}/{methodName}";
+                serviceUrl = eventArgs.ServiceUri?.AbsoluteUri ?? "unknown_url";
+                resourceName = $"{serviceUrl}/{methodName}";
             }
 
-            var tags = new RemotingTags(spanKind);
-
-            Span span = tracer.StartSpan(GetSpanName(spanKind), tags, context);
-            span.ResourceName = resourceName ?? "unknown";
-
-            if (serviceUrl != null)
-            {
-                tags.Uri = serviceUrl;
-            }
-
-            if (methodName != null)
-            {
-                tags.MethodName = methodName;
-            }
+            var tags = new RemotingTags(spanKind)
+                       {
+                           Uri = serviceUrl,
+                           MethodName = methodName
+                       };
 
             if (messageHeader != null)
             {
                 tags.MethodId = messageHeader.MethodId.ToString(CultureInfo.InvariantCulture);
                 tags.InterfaceId = messageHeader.InterfaceId.ToString(CultureInfo.InvariantCulture);
-
-                if (messageHeader.InvocationId != null)
-                {
-                    tags.InvocationId = messageHeader.InvocationId;
-                }
+                tags.InvocationId = messageHeader.InvocationId;
             }
+
+            Span span = tracer.StartSpan(GetSpanName(spanKind), tags, context);
+            span.ResourceName = resourceName ?? "unknown";
 
             switch (spanKind)
             {
@@ -344,7 +356,7 @@ namespace Datadog.Trace.ServiceFabric
             return span;
         }
 
-        private static void FinishSpan(EventArgs e, string spanKind)
+        private static void FinishSpan(EventArgs? e, string spanKind)
         {
             if (!_initialized)
             {
@@ -365,15 +377,20 @@ namespace Datadog.Trace.ServiceFabric
 
                 if (expectedSpanName != scope.Span.OperationName)
                 {
-                    Log.Warning("Expected span name {0}, but found {1} instead.", expectedSpanName, scope.Span.OperationName);
+                    Log.Warning("Expected span name {expectedSpanName}, but found {actualSpanName} instead.", expectedSpanName, scope.Span.OperationName);
                     return;
                 }
 
                 try
                 {
-                    if (e is ServiceRemotingFailedResponseEventArgs failedResponseArg && failedResponseArg.Error != null)
+                    if (e?.GetType().FullName == "Microsoft.ServiceFabric.Services.Remoting.V2.ServiceRemotingFailedResponseEventArgs")
                     {
-                        scope.Span?.SetException(failedResponseArg.Error);
+                        var exception = e.As<IServiceRemotingFailedResponseEventArgs>().Error;
+
+                        if (exception == null)
+                        {
+                            scope.Span?.SetException(exception);
+                        }
                     }
                 }
                 catch (Exception ex)

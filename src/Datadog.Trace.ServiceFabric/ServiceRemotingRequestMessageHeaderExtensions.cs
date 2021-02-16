@@ -1,6 +1,5 @@
 using System;
 using System.Text;
-using Microsoft.ServiceFabric.Services.Remoting.V2;
 
 namespace Datadog.Trace.ServiceFabric
 {
