@@ -19,9 +19,9 @@ namespace Datadog.Trace.ServiceFabric
 
         public static int? TryGetHeaderValueInt32(this IServiceRemotingRequestMessageHeader headers, string headerName)
         {
-            if (headers.TryGetHeaderValue(headerName, out byte[] bytes) && bytes?.Length == sizeof(int))
+            if (headers.TryGetHeaderValue(headerName, out var bytes) && bytes?.Length == sizeof(int))
             {
-                return BitConverter.ToInt32(bytes, 0);
+                return BitConverter.ToInt32(bytes, startIndex: 0);
             }
 
             return null;
@@ -29,9 +29,9 @@ namespace Datadog.Trace.ServiceFabric
 
         public static ulong? TryGetHeaderValueUInt64(this IServiceRemotingRequestMessageHeader headers, string headerName)
         {
-            if (headers.TryGetHeaderValue(headerName, out byte[] bytes) && bytes?.Length == sizeof(ulong))
+            if (headers.TryGetHeaderValue(headerName, out var bytes) && bytes?.Length == sizeof(ulong))
             {
-                return BitConverter.ToUInt64(bytes, 0);
+                return BitConverter.ToUInt64(bytes, startIndex: 0);
             }
 
             return null;
@@ -39,7 +39,7 @@ namespace Datadog.Trace.ServiceFabric
 
         public static string? TryGetHeaderValueString(this IServiceRemotingRequestMessageHeader headers, string headerName)
         {
-            if (headers.TryGetHeaderValue(headerName, out byte[] bytes) && bytes?.Length > 0)
+            if (headers.TryGetHeaderValue(headerName, out var bytes) && bytes?.Length > 0)
             {
                 return Encoding.UTF8.GetString(bytes);
             }
