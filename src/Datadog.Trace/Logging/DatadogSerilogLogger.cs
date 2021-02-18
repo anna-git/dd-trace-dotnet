@@ -9,8 +9,8 @@ namespace Datadog.Trace.Logging
     internal class DatadogSerilogLogger : IDatadogLogger
     {
         private static readonly object[] NoPropertyValues = Datadog.Trace.Util.ArrayHelper.Empty<object>();
-        private readonly ILogger _logger;
         private readonly ILogRateLimiter _rateLimiter;
+        private ILogger _logger;
 
         public DatadogSerilogLogger(ILogger logger, ILogRateLimiter rateLimiter)
         {
@@ -139,6 +139,12 @@ namespace Datadog.Trace.Logging
 
         public void Error(Exception exception, string messageTemplate, object[] args, [CallerLineNumber] int sourceLine = 0, [CallerFilePath] string sourceFile = "")
             => Write(LogEventLevel.Error, exception, messageTemplate, args, sourceLine, sourceFile);
+
+        /// <summary>
+        /// For testing purposes only
+        /// </summary>
+        /// <param name="logger">The logger to replace the internal ILogger</param>
+        internal void SetLogger(ILogger logger) => _logger = logger;
 
         private void Write<T>(LogEventLevel level, Exception exception, string messageTemplate, T property, int sourceLine, string sourceFile)
         {
